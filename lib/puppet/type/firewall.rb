@@ -16,9 +16,16 @@ Puppet::Type.newtype(:firewall) do
     This type provides the capability to manage firewall rules within
     puppet.
 
-    **Autorequires:** If Puppet is managing the iptables or ip6tables chains
-    specified in the `chain` or `jump` parameters, the firewall resource
-    will autorequire those firewallchain resources.
+    **Autorequires:**
+
+    If Puppet is managing the iptables or ip6tables chains specified in the
+    `chain` or `jump` parameters, the firewall resource will autorequire
+    those firewallchain resources.
+
+    If Puppet is managing the iptables or iptables-persistent packages, and
+    the provider is iptables or ip6tables, the firewall resource will
+    autorequire those packages to ensure that any required binaries are
+    installed.
   EOS
 
   feature :rate_limiting, "Rate limiting features."
@@ -34,6 +41,7 @@ Puppet::Type.newtype(:firewall) do
   feature :mark, "Set the netfilter mark value associated with the packet"
   feature :tcp_flags, "The ability to match on particular TCP flag settings"
   feature :pkttype, "Match a packet type"
+  feature :socket, "Match open sockets"
 
   # provider specific features
   feature :iptables, "The provider provides iptables features."
@@ -88,7 +96,7 @@ Puppet::Type.newtype(:firewall) do
   # Generic matching properties
   newproperty(:source) do
     desc <<-EOS
-      An array of source addresses. For example:
+      The source address. For example:
 
           source => '192.168.2.0/24'
 
@@ -102,7 +110,7 @@ Puppet::Type.newtype(:firewall) do
 
   newproperty(:destination) do
     desc <<-EOS
-      An array of destination addresses to match. For example:
+      The destination address to match. For example:
 
           destination => '192.168.1.0/24'
 
@@ -535,6 +543,15 @@ Puppet::Type.newtype(:firewall) do
     newvalues(:unicast, :broadcast, :multicast)
   end
 
+  newproperty(:socket, :required_features => :socket) do
+    desc <<-EOS
+      If true, matches if an open socket can be found by doing a coket lookup
+      on the packet.
+    EOS
+
+    newvalues(:true, :false)
+  end
+
   newparam(:line) do
     desc <<-EOS
       Read-only property for caching the rule line.
@@ -542,21 +559,34 @@ Puppet::Type.newtype(:firewall) do
   end
 
   autorequire(:firewallchain) do
+    reqs = []
+    protocol = nil
+
     case value(:provider)
     when :iptables
       protocol = "IPv4"
     when :ip6tables
       protocol = "IPv6"
-    else
-      return
     end
 
-    reqs = []
-    [value(:chain), value(:jump)].each do |chain|
-      reqs << "#{chain}:#{value(:table)}:#{protocol}" unless chain.nil?
+    unless protocol.nil?
+      [value(:chain), value(:jump)].each do |chain|
+        reqs << "#{chain}:#{value(:table)}:#{protocol}" unless chain.nil?
+      end
     end
 
     reqs
+  end
+
+  # Classes would be a better abstraction, pending:
+  # http://projects.puppetlabs.com/issues/19001
+  autorequire(:package) do
+    case value(:provider)
+    when :iptables, :ip6tables
+      %w{iptables iptables-persistent}
+    else
+      []
+    end
   end
 
   validate do
