@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe 'firewall::linux::debian' do
+describe 'firewall::linux::debian', :type => :class do
   it { should contain_package('iptables-persistent').with(
     :ensure => 'present'
   )}
@@ -9,4 +9,11 @@ describe 'firewall::linux::debian' do
     :enable   => 'true',
     :require  => 'Package[iptables-persistent]'
   )}
+
+  context 'enable => false' do
+    let(:params) {{ :enable => 'false' }}
+    it { should contain_service('iptables-persistent').with(
+      :enable   => 'false'
+    )}
+  end
 end
