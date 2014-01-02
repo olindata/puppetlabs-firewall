@@ -49,6 +49,8 @@ Puppet::Type.newtype(:firewall) do
   feature :ishasmorefrags, "Match a non-last fragment of a fragmented ipv6 packet - might be first"
   feature :islastfrag, "Match the last fragment of an ipv6 packet"
   feature :isfirstfrag, "Match the first fragment of a fragmented ipv6 packet"
+  feature :ipsec_policy, "Match IPsec policy"
+  feature :ipsec_dir, "Match IPsec policy direction"
 
   # provider specific features
   feature :iptables, "The provider provides iptables features."
@@ -107,12 +109,16 @@ Puppet::Type.newtype(:firewall) do
 
           source => '192.168.2.0/24'
 
+      You can also negate a mask by putting ! in front. For example:
+
+          source => '! 192.168.2.0/24'
+
       The source can also be an IPv6 address if your provider supports it.
     EOS
 
     munge do |value|
       begin
-        @resource.host_to_ip(value)
+        @resource.host_to_mask(value)
       rescue Exception => e
         self.fail("host_to_ip failed for #{value}, exception #{e}")
       end
@@ -138,12 +144,16 @@ Puppet::Type.newtype(:firewall) do
 
           destination => '192.168.1.0/24'
 
+      You can also negate a mask by putting ! in front. For example:
+
+          destination  => '! 192.168.2.0/24'
+
       The destination can also be an IPv6 address if your provider supports it.
     EOS
 
     munge do |value|
       begin
-        @resource.host_to_ip(value)
+        @resource.host_to_mask(value)
       rescue Exception => e
         self.fail("host_to_ip failed for #{value}, exception #{e}")
       end
@@ -716,6 +726,22 @@ Puppet::Type.newtype(:firewall) do
     EOS
 
     newvalues(:true, :false)
+  end
+
+  newproperty(:ipsec_policy, :required_features => :ipsec_policy) do
+	  desc <<-EOS
+	  	 Sets the ipsec policy type
+	  EOS
+
+	  newvalues(:none, :ipsec)
+  end
+
+  newproperty(:ipsec_dir, :required_features => :ipsec_dir) do
+	  desc <<-EOS
+	  	 Sets the ipsec policy direction
+	  EOS
+
+	  newvalues(:in, :out)
   end
 
   newparam(:line) do
